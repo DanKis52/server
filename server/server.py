@@ -1,19 +1,12 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import sys
-sys.path.append(r'/home/ubuntu/server/calculatorLobachevsky')
 sys.path.append(r'/home/ubuntu/server/calculator_methods')
-from matrix import *
-from expression import *
+import calculatorLobachevsky as cl
 from combinatorics import *
 from sympy import *
 
 class ServerHandler(BaseHTTPRequestHandler):
-
-    #logger
-    def logs(self, request, response):
-        print('Request: ' + request)
-        print('Response: ' + response)
 
     #headers sender
     def send_basic_headers(self):
@@ -29,46 +22,22 @@ class ServerHandler(BaseHTTPRequestHandler):
 
     #result sender
     def send_result(self, response):
+        self.good_request()
         response = {'response' : response}
         self.wfile.write(json.dumps(response).encode('utf-8'))
         print('Request: ' + str(self.query_string))
         print('Response: ' + str(response))
 
-    #error handlers
-    def json_error_handler(self):
-        self.send_response(400)
-        self.send_basic_headers()
-        self.end_headers()
-        self.send_result('json.decoder.JSONDecodeError')
-
-    def key_error_handler(self):
-        self.send_response(400)
-        self.send_basic_headers()
-        self.end_headers()
-        self.send_result('KeyError')
-
-    def type_error_handler(self):
-        self.send_response(400)
-        self.send_basic_headers()
-        self.end_headers()
-        self.send_result('TypeError')
-
-    def syntax_error_handler(self):
-        self.send_response(400)
-        self.send_basic_headers()
-        self.end_headers()
-        self.send_result('SyntaxError')
-
-
     #math handlers
     def expression_handler(self, data):
-        obj = Expression(data)
+        obj = cl.Expression(data)
         return(str(obj.calculate()))
 
     def matrix_handler(self, data):
         operation = data['operation']
         values = data['values']
-        obj = Matrix(values)
+        print(values)
+        obj = cl.Matrix(values)
         if operation == 'det':
             result = obj.det()
         elif operation == 'transposition':
@@ -91,12 +60,6 @@ class ServerHandler(BaseHTTPRequestHandler):
         elif operation == '*':
             result = obj1 * obj2
         return(str(result))
-
-    def equation_handler(self, data):
-        return('equation')
-
-    def inequality_handler(self, data):
-        return('inequality')
 
     def derivative_handler(self, data):
         expr = data['expression']
@@ -181,6 +144,17 @@ class ServerHandler(BaseHTTPRequestHandler):
         result = str(series(expr)).replace('**','^')
         return result
 
+    #error handler
+    def error_handler(self, err):
+        e = str(type(err))
+        self.send_response(400)
+        self.send_basic_headers()
+        self.end_headers()
+        response = {'response' : e}
+        self.wfile.write(json.dumps(response).encode('utf-8'))
+        print('Request: ' + str(self.query_string))
+        print('Response: ' + str(e))
+
     #request handlers
     def json_request_handler(self):
         try:
@@ -188,103 +162,44 @@ class ServerHandler(BaseHTTPRequestHandler):
             type = self.request_json['type']
             data = self.request_json['data']
             self.type_request_handler(type, data)
-        except json.decoder.JSONDecodeError:
-            self.json_error_handler()
+        except Exception as e:
+            self.error_handler(e)
 
     def type_request_handler(self, type, data):
-        if type == 'expression':
-            try:
+        try:
+            if type == 'expression':
                 result = self.expression_handler(data)
-                self.good_request()
                 self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'matrix':
-            try:
+            elif type == 'matrix':
                 result = self.matrix_handler(data)
-                self.good_request()
                 self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'twomatrix':
-            try:
+            elif type == 'twomatrix':
                 result = self.twomatrix_handler(data)
-                self.good_request()
                 self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'sigma':
-            try:
-                result = self.sigma_handler(data)
-                self.good_request()
-                self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'equation':
-            try:
-                result = self.equation_handler(data)
-                self.good_request()
-                self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'inequality':
-            try:
-                result = self.inequality_handler(data)
-                self.good_request()
-                self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'derivative':
-            try:
+            elif type == 'derivative':
                 result = self.derivative_handler(data)
-                self.good_request()
                 self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'point_derivative':
-            try:
-                result = self.point_derivative_handler(data)
-                self.good_request()
-                self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'indef_integral':
-            try:
+            elif type == 'indef_integral':
                 result = self.indef_integral_handler(data)
-                self.good_request()
                 self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'def_integral':
-            try:
+            elif type == 'def_integral':
                 result = self.def_integral_handler(data)
-                self.good_request()
                 self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'combinatorics':
-            try:
+            elif type == 'combinatorics':
                 result = self.combinatorics_handler(data)
-                self.good_request()
                 self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'limit':
-            try:
+            elif type == 'limit':
                 result = self.limit_handler(data)
-                self.good_request()
                 self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        elif type == 'series':
-            try:
+            elif type == 'series':
                 result = self.series_handler(data)
-                self.good_request()
                 self.send_result(result)
-            except KeyError:
-                self.key_error_handler()
-        else:
-            self.key_error_handler()
+            else:
+               self.send_result('WrongType')
+        except Exception as e:
+            self.error_handler(e)
+
+
     #response 200
     def good_request(self):
         self.send_response(200)
@@ -294,12 +209,7 @@ class ServerHandler(BaseHTTPRequestHandler):
     #POST handler
     def do_POST(self):
         if self.path == "/calculate":
-            try:
-                self.json_request_handler()
-            except TypeError:
-                self.type_error_handler()
-            except:
-                self.syntax_error_handler()
+            self.json_request_handler()
         else:
             self.send_error(406)
 
